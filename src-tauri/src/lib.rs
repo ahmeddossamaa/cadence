@@ -10,7 +10,7 @@ use tauri_plugin_global_shortcut::{Code, Modifiers, Shortcut, ShortcutState};
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let mut builder = tauri::Builder::default();
-    
+
     // Register global shortcut on desktop
     #[cfg(desktop)]
     {
@@ -20,7 +20,7 @@ pub fn run() {
                     if event.state() == ShortcutState::Pressed {
                         let ctrl_shift_t = Shortcut::new(Some(Modifiers::CONTROL | Modifiers::SHIFT), Code::KeyT);
                         let cmd_shift_t = Shortcut::new(Some(Modifiers::SUPER | Modifiers::SHIFT), Code::KeyT);
-                        
+
                         if shortcut == &ctrl_shift_t || shortcut == &cmd_shift_t {
                             if let Some(window) = app.get_webview_window("main") {
                                 if let Ok(is_visible) = window.is_visible() {

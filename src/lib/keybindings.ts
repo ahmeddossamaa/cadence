@@ -1,20 +1,12 @@
 export type Action = () => void;
 
 type ActionsMap = {
-  toggleOverlay: Action;
   closeOverlay: Action;
   navigateLeft: Action;
   navigateRight: Action;
-  selectTicket: Action;
-  scrollUp: Action;
-  scrollDown: Action;
-  cycleFocus: Action;
+  dismissDetail: Action;
   quickSwitch: (index: number) => void;
-  togglePause: Action;
   refreshJira: Action;
-  openSettings: Action;
-  acceptPrompt: Action;
-  dismissPrompt: Action;
 };
 
 let boundActions: ActionsMap | null = null;
@@ -40,38 +32,12 @@ export function handleKeydown(event: KeyboardEvent): void {
     case 'ArrowRight':
       boundActions.navigateRight();
       break;
-    case 'Enter':
-      boundActions.selectTicket();
-      break;
-    case 'ArrowUp':
-      boundActions.scrollUp();
-      break;
-    case 'ArrowDown':
-      boundActions.scrollDown();
-      break;
-    case 'Tab':
-      event.preventDefault();
-      boundActions.cycleFocus();
-      break;
-    case ' ':
-      event.preventDefault();
-      boundActions.togglePause();
+    case 'Backspace':
+      boundActions.dismissDetail();
       break;
     case 'r':
     case 'R':
       boundActions.refreshJira();
-      break;
-    case 's':
-    case 'S':
-      boundActions.openSettings();
-      break;
-    case 'y':
-    case 'Y':
-      boundActions.acceptPrompt();
-      break;
-    case 'n':
-    case 'N':
-      boundActions.dismissPrompt();
       break;
     default:
       if (event.key >= '1' && event.key <= '9') {
