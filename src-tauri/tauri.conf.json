@@ -15,7 +15,7 @@
         "label": "main",
         "title": "Cadence",
         "resizable": false,
-        "fullscreen": true,
+        "fullscreen": false,
         "maximized": true,
         "decorations": false,
         "transparent": true,
@@ -24,6 +24,7 @@
         "skipTaskbar": false
       }
     ],
+    "macOSPrivateApi": true,
     "security": {
       "csp": null
     }
