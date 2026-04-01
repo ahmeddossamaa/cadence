@@ -35,8 +35,6 @@
 <style>
   .detail-panel {
     background: var(--glass-bg);
-    backdrop-filter: blur(var(--glass-blur));
-    -webkit-backdrop-filter: blur(var(--glass-blur));
     border: 1px solid var(--glass-border);
     border-radius: 10px;
     padding: 1.25rem 1.5rem;

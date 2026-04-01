@@ -25,8 +25,8 @@
 
 <style>
   .card {
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.14);
     padding: 0.875rem 1.125rem;
     min-width: 140px;
     border-radius: 8px;
@@ -39,16 +39,16 @@
   }
 
   .card:hover {
-    background: rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.14);
   }
 
   .card.selected {
-    background: rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.14);
   }
 
   .card.active {
-    border-color: rgba(255, 255, 255, 0.18);
-    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.22);
+    background: rgba(255, 255, 255, 0.14);
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
     min-width: 170px;
     padding: 1rem 1.25rem;

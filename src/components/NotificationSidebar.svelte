@@ -1,20 +1,14 @@
 <script lang="ts">
   import { notificationStore } from '../lib/stores/notificationStore';
   import NotificationItem from './NotificationItem.svelte';
-  import Prompt from './Prompt.svelte';
 
   $: notifications = $notificationStore.notifications;
-  $: activePrompt = $notificationStore.activePrompt;
 </script>
 
 <div class="sidebar-container">
-  {#if activePrompt}
-    <div class="prompt-section">
-      <Prompt prompt={activePrompt} />
-    </div>
-  {/if}
-
-  <div class="history-section">
+  {#if notifications.length === 0}
+    <div class="empty">No activity yet</div>
+  {:else}
     {#each notifications as notification, index (notification.id)}
       <div class="notification-wrapper">
         <NotificationItem {notification} />
@@ -23,17 +17,18 @@
         {/if}
       </div>
     {/each}
-  </div>
+  {/if}
 </div>
 
 <style>
   .sidebar-container {
     width: 320px;
-    background: rgba(20, 45, 68, 0.95); /* Darker sidebar */
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
     display: flex;
     flex-direction: column;
     padding: 1.5rem;
-    gap: 2rem;
+    gap: 0.5rem;
     height: 100%;
     overflow-y: auto;
     border-radius: 12px;
@@ -48,14 +43,11 @@
     border-radius: 3px;
   }
 
-  .prompt-section {
-    flex-shrink: 0;
-  }
-
-  .history-section {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
+  .empty {
+    color: var(--color-text-secondary);
+    font-size: 0.875rem;
+    text-align: center;
+    padding: 2rem 0;
   }
 
   .notification-wrapper {

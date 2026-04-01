@@ -6,7 +6,7 @@
   import TicketCard from '../components/TicketCard.svelte';
   import { ticketStore } from '../lib/stores/ticketStore';
   import { timerStore } from '../lib/stores/timerStore';
-  import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
+  import { invoke } from '@tauri-apps/api/core';
 
   $: activeKey = $timerStore.activeTicketKey;
 
@@ -38,13 +38,18 @@
   }
 
   function dismissOverlay() {
-    getCurrentWebviewWindow().hide();
+    invoke('window_hide');
   }
 
   onMount(() => {
     registerBindings({
       closeOverlay: async () => {
-        getCurrentWebviewWindow().hide();
+        // If detail panel is open, dismiss it first; otherwise hide the overlay
+        if ($ticketStore.selectedKey) {
+          ticketStore.selectTicket(null);
+        } else {
+          invoke('window_hide');
+        }
       },
       navigateLeft: () => {
         if (!sortedTickets.length) return;
@@ -136,8 +141,6 @@
     align-items: stretch;
     gap: 0;
     background: var(--glass-bg);
-    backdrop-filter: blur(var(--glass-blur));
-    -webkit-backdrop-filter: blur(var(--glass-blur));
     border: 1px solid var(--glass-border);
     border-radius: 12px;
     padding: 1rem;

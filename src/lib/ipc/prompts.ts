@@ -1,4 +1,5 @@
-export async function prompt_respond(args: { id: string, value: string }): Promise<void> {
-  console.log('Responded to prompt', args);
-  return Promise.resolve();
+import { invoke } from '@tauri-apps/api/core';
+
+export async function prompt_respond(args: { id: string, value: number }): Promise<void> {
+  return invoke('prompt_respond', { response: args });
 }
