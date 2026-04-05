@@ -16,7 +16,6 @@ CREATE TABLE blocks (
     clicks          INTEGER NOT NULL DEFAULT 0,
     moves           INTEGER NOT NULL DEFAULT 0,
     scroll          INTEGER NOT NULL DEFAULT 0,
-    cpu             REAL NOT NULL DEFAULT 0,
     ema             REAL NOT NULL DEFAULT 0,
     app_switches    INTEGER NOT NULL DEFAULT 0,
     dominant_app    TEXT,
@@ -32,7 +31,6 @@ CREATE TABLE feedback (
     clicks          REAL NOT NULL,
     moves           REAL NOT NULL,
     scroll          REAL NOT NULL,
-    cpu             REAL NOT NULL,
     process         REAL NOT NULL,
     stability       REAL NOT NULL,
     ema             REAL NOT NULL
@@ -44,7 +42,6 @@ CREATE TABLE calibration (
     w_clicks        REAL NOT NULL DEFAULT 0.15,
     w_moves         REAL NOT NULL DEFAULT 0.2,
     w_scroll        REAL NOT NULL DEFAULT 0.15,
-    w_cpu           REAL NOT NULL DEFAULT 0.1,
     w_process       REAL NOT NULL DEFAULT 0.1,
     w_stability     REAL NOT NULL DEFAULT 0.1,
     idle_threshold  REAL NOT NULL DEFAULT 0.08,

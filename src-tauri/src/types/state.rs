@@ -49,7 +49,7 @@ pub struct StateTransition {
 pub struct TimerState {
     pub active_ticket_key: Option<String>,
     pub active_ticket_name: Option<String>,
-    pub elapsed_seconds: u64,
+    pub started_at: Option<i64>,
     pub daily_total_seconds: u64,
     pub daily_target_seconds: u64,
     pub tracking_state: TrackingState,

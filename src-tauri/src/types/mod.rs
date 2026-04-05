@@ -1,7 +1,6 @@
-pub mod state;
-pub mod block;
-pub mod sample;
-pub mod prompt;
-pub mod notification;
 pub mod calibration;
+pub mod diagnostics;
+pub mod prompt;
+pub mod sample;
 pub mod settings;
+pub mod state;

@@ -5,7 +5,7 @@ pub const DEFAULT_SETTINGS: &[(&str, &str)] = &[
     ("sample_interval_secs", "2"),
     ("evaluate_interval_secs", "5"),
     ("checkpoint_interval_secs", "300"),
-    ("ema_halflife_secs", "150"),
+    ("ema_halflife_secs", "60"),
     ("idle_timeout_secs", "300"),
     ("prompt_timeout_secs", "120"),
     ("prompt_cooldown_secs", "300"),

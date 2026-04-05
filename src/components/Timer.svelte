@@ -1,5 +1,24 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import { timerStore } from '../lib/stores/timerStore';
+
+  let elapsedSeconds = 0;
+
+  function tick() {
+    const { startedAt } = $timerStore;
+    elapsedSeconds = startedAt != null
+      ? Math.max(0, Math.floor(Date.now() / 1000) - startedAt)
+      : 0;
+  }
+
+  onMount(() => {
+    tick();
+    const interval = setInterval(tick, 1000);
+    return () => clearInterval(interval);
+  });
+
+  // Re-sync immediately when startedAt changes (state transition)
+  $: $timerStore.startedAt, tick();
 
   function formatTime(seconds: number): string {
     const h = Math.floor(seconds / 3600);
@@ -14,7 +33,7 @@
     return `${h}:${m.toString().padStart(2, '0')}`;
   }
 
-  $: elapsed = formatTime($timerStore.elapsedSeconds);
+  $: elapsed = formatTime(elapsedSeconds);
   $: dailyTotal = formatHoursMinutes($timerStore.dailyTotalSeconds);
   $: dailyTarget = formatHoursMinutes($timerStore.dailyTargetSeconds);
   $: progress = Math.min(($timerStore.dailyTotalSeconds / $timerStore.dailyTargetSeconds) * 100, 100);

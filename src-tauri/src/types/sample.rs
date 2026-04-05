@@ -17,19 +17,17 @@ pub struct FeatureVector {
     pub clicks: f64,
     pub moves: f64,
     pub scroll: f64,
-    pub cpu: f64,
     pub process: f64,
     pub stability: f64,
 }
 
 impl FeatureVector {
-    pub fn as_array(&self) -> [f64; 7] {
+    pub fn as_array(&self) -> [f64; 6] {
         [
             self.keys,
             self.clicks,
             self.moves,
             self.scroll,
-            self.cpu,
             self.process,
             self.stability,
         ]

@@ -7,6 +7,7 @@ type ActionsMap = {
   dismissDetail: Action;
   quickSwitch: (index: number) => void;
   refreshJira: Action;
+  toggleDiagnostics: Action;
 };
 
 let boundActions: ActionsMap | null = null;
@@ -38,6 +39,9 @@ export function handleKeydown(event: KeyboardEvent): void {
     case 'r':
     case 'R':
       boundActions.refreshJira();
+      break;
+    case '`':
+      boundActions.toggleDiagnostics();
       break;
     default:
       if (event.key >= '1' && event.key <= '9') {

@@ -7,6 +7,9 @@
   import { ticketStore } from '../lib/stores/ticketStore';
   import { timerStore } from '../lib/stores/timerStore';
   import { invoke } from '@tauri-apps/api/core';
+  import DiagnosticsPanel from '../components/DiagnosticsPanel.svelte';
+
+  let showDiagnostics = false;
 
   $: activeKey = $timerStore.activeTicketKey;
 
@@ -76,6 +79,7 @@
           m.jira_sync().then(tickets => ticketStore.updateList(tickets));
         });
       },
+      toggleDiagnostics: () => { showDiagnostics = !showDiagnostics; },
     });
   });
 </script>
@@ -90,6 +94,13 @@
   {#if selectedKey}
     <div class="detail-area">
       <TicketDetail />
+    </div>
+  {/if}
+
+  <!-- Diagnostics panel (toggle with ` key) -->
+  {#if showDiagnostics}
+    <div class="diagnostics-area">
+      <DiagnosticsPanel />
     </div>
   {/if}
 
@@ -134,6 +145,10 @@
 
   .detail-area {
     margin-bottom: 16px;
+  }
+
+  .diagnostics-area {
+    margin-bottom: 12px;
   }
 
   .bottom-bar {

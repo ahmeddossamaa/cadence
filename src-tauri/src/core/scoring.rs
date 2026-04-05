@@ -1,9 +1,9 @@
 use crate::types::calibration::{Calibration, Weights};
 use crate::types::sample::{FeatureVector, RawSample};
 
-const KEYS_CEILING: f64 = 30.0;
+const KEYS_CEILING: f64 = 12.0;   // 12 keys/2s ≈ 90 WPM → feature=1.0; 70 WPM → ~0.92
 const CLICKS_CEILING: f64 = 15.0;
-const MOVES_CEILING: f64 = 500.0;
+const MOVES_CEILING: f64 = 400.0;  // has_input gate handles noise; 400 = moderate purposeful movement
 const SCROLL_CEILING: f64 = 20.0;
 
 pub fn normalize(samples: &[RawSample], prev_app: Option<&str>) -> FeatureVector {
@@ -17,26 +17,34 @@ pub fn normalize(samples: &[RawSample], prev_app: Option<&str>) -> FeatureVector
     let avg_clicks = samples.iter().map(|s| s.clicks as f64).sum::<f64>() / n;
     let avg_moves = samples.iter().map(|s| s.moves as f64).sum::<f64>() / n;
     let avg_scroll = samples.iter().map(|s| s.scroll as f64).sum::<f64>() / n;
-    let avg_cpu = samples.iter().map(|s| s.cpu).sum::<f64>() / n;
 
-    let unique_apps: std::collections::HashSet<&str> = samples
-        .iter()
-        .filter_map(|s| s.foreground_app.as_deref())
-        .collect();
-    let app_switches = if unique_apps.len() > 1 {
-        unique_apps.len() as f64 - 1.0
+    // Only count process/stability signals when there is actual input.
+    // They describe *how* the user is working, not *whether* they are working.
+    // Without this gate, "stable foreground app + mouse sensor noise" creates a
+    // baseline score that prevents the EMA from dropping below idle_threshold.
+    let has_input = avg_keys > 0.0 || avg_clicks > 0.0 || avg_moves > 1.0 || avg_scroll > 0.0;
+
+    let (process, stability) = if has_input {
+        let unique_apps: std::collections::HashSet<&str> = samples
+            .iter()
+            .filter_map(|s| s.foreground_app.as_deref())
+            .collect();
+        let app_switches = if unique_apps.len() > 1 {
+            unique_apps.len() as f64 - 1.0
+        } else {
+            0.0
+        };
+        let process = (app_switches / 5.0).min(1.0);
+
+        let current_app = samples.last().and_then(|s| s.foreground_app.as_deref());
+        let stability = match (current_app, prev_app) {
+            (Some(curr), Some(prev)) if curr == prev => 1.0,
+            (Some(_), Some(_)) => 0.0,
+            _ => 0.5,
+        };
+        (process, stability)
     } else {
-        0.0
-    };
-    let process = (app_switches / 5.0).min(1.0);
-
-    let current_app = samples
-        .last()
-        .and_then(|s| s.foreground_app.as_deref());
-    let stability = match (current_app, prev_app) {
-        (Some(curr), Some(prev)) if curr == prev => 1.0,
-        (Some(_), Some(_)) => 0.0,
-        _ => 0.5,
+        (0.0, 0.0)
     };
 
     FeatureVector {
@@ -44,7 +52,6 @@ pub fn normalize(samples: &[RawSample], prev_app: Option<&str>) -> FeatureVector
         clicks: (avg_clicks / CLICKS_CEILING).min(1.0),
         moves: (avg_moves / MOVES_CEILING).min(1.0),
         scroll: (avg_scroll / SCROLL_CEILING).min(1.0),
-        cpu: (avg_cpu / 100.0).min(1.0),
         process,
         stability,
     }
@@ -75,8 +82,8 @@ pub fn adapt_weights(
     let x = features.as_array();
     let w = cal.weights.as_array();
 
-    let mut new_w: [f64; 7] = [0.0; 7];
-    for i in 0..7 {
+    let mut new_w: [f64; 6] = [0.0; 6];
+    for i in 0..6 {
         new_w[i] = (w[i] + lr * error * x[i]).max(0.0);
     }
 

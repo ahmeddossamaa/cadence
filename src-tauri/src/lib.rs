@@ -1,19 +1,10 @@
-pub mod types;
-pub mod platform;
-pub mod adapters;
 pub mod core;
-pub mod workers;
-pub mod services;
-pub mod controllers;
+pub mod db;
+pub mod modules;
+pub mod platform;
+pub mod types;
 
-use adapters::persistence::Db;
-use services::notification::NotificationService;
-use services::orchestrator::Orchestrator;
 use tauri::Manager;
-use tauri_plugin_global_shortcut::{Code, Modifiers, Shortcut, ShortcutState};
-use std::sync::atomic::AtomicBool;
-use std::sync::Arc;
-use std::time::Duration;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -21,42 +12,7 @@ pub fn run() {
 
     #[cfg(desktop)]
     {
-        builder = builder.plugin(
-            tauri_plugin_global_shortcut::Builder::new()
-                .with_handler(|app, shortcut, event| {
-                    if event.state() == ShortcutState::Pressed {
-                        let ctrl_shift_t = Shortcut::new(Some(Modifiers::CONTROL | Modifiers::SHIFT), Code::KeyT);
-                        let cmd_shift_t = Shortcut::new(Some(Modifiers::SUPER | Modifiers::SHIFT), Code::KeyT);
-
-                        if shortcut == &ctrl_shift_t || shortcut == &cmd_shift_t {
-                            if let Some(window) = app.get_webview_window("main") {
-                                if let Ok(is_visible) = window.is_visible() {
-                                    if is_visible {
-                                        let _ = window.hide();
-                                        #[cfg(target_os = "macos")]
-                                        {
-                                            use cocoa::appkit::{NSApp, NSApplication, NSApplicationActivationPolicy};
-                                            unsafe {
-                                                let ns_app = NSApp();
-                                                ns_app.setActivationPolicy_(NSApplicationActivationPolicy::NSApplicationActivationPolicyRegular);
-                                                ns_app.setActivationPolicy_(NSApplicationActivationPolicy::NSApplicationActivationPolicyAccessory);
-                                            }
-                                        }
-                                    } else {
-                                        let _ = window.show();
-                                        let _ = window.set_focus();
-                                    }
-                                }
-                            }
-                        }
-                    }
-                })
-                .with_shortcut(Shortcut::new(Some(Modifiers::CONTROL | Modifiers::SHIFT), Code::KeyT))
-                .unwrap()
-                .with_shortcut(Shortcut::new(Some(Modifiers::SUPER | Modifiers::SHIFT), Code::KeyT))
-                .unwrap()
-                .build(),
-        );
+        builder = modules::window::setup::configure_shortcuts(builder);
     }
 
     builder
@@ -68,7 +24,6 @@ pub fn run() {
         .setup(|app| {
             log::info!("[startup] initializing cadence");
 
-            // Hide from dock on macOS — this is an overlay app
             #[cfg(target_os = "macos")]
             {
                 use cocoa::appkit::{NSApp, NSApplication, NSApplicationActivationPolicy};
@@ -81,84 +36,42 @@ pub fn run() {
             // 1. Database
             let data_dir = app.path().app_data_dir().expect("failed to resolve app data dir");
             let db_path = data_dir.join("cadence.db");
-
-            let db = Db::open(&db_path).expect("failed to open database");
-            db.run_migrations().expect("failed to run migrations");
-            db.ensure_singletons().expect("failed to ensure singletons");
-            db.seed_default_settings().expect("failed to seed settings");
-            let db = Arc::new(db);
+            let db = db::init(&db_path);
             log::info!("[startup] database ready at {:?}", db_path);
 
-            // 2. Read settings for worker intervals and prompt config
+            // 2. Settings
             let settings = db.get_all_settings().expect("failed to read settings");
-            let sample_interval = settings.get_u64("sample_interval_secs").unwrap_or(2);
+            let sample_interval   = settings.get_u64("sample_interval_secs").unwrap_or(2);
             let evaluate_interval = settings.get_u64("evaluate_interval_secs").unwrap_or(5);
-            let prompt_cooldown = settings.get_i64("prompt_cooldown_secs").unwrap_or(300);
-            let prompt_debounce = settings.get_i64("prompt_debounce_secs").unwrap_or(60);
-            let prompt_timeout = settings.get_u64("prompt_timeout_secs").unwrap_or(120);
-
-            // 3. Orchestrator
-            let notification_service = NotificationService::new(app.handle().clone());
-            let orchestrator = Arc::new(Orchestrator::new(
-                db.clone(),
-                notification_service,
-                prompt_cooldown,
-                prompt_debounce,
-                prompt_timeout,
-            ));
+            let prompt_cooldown   = settings.get_i64("prompt_cooldown_secs").unwrap_or(300);
+            let prompt_debounce   = settings.get_i64("prompt_debounce_secs").unwrap_or(60);
+            let prompt_timeout    = settings.get_u64("prompt_timeout_secs").unwrap_or(120);
 
             log::info!(
                 "[startup] sample={}s evaluate={}s cooldown={}s debounce={}s timeout={}s",
                 sample_interval, evaluate_interval, prompt_cooldown, prompt_debounce, prompt_timeout
             );
 
-            // 4. Session recovery — if the app crashed while ACTIVE, close stale block
-            if let Ok(session) = db.get_session() {
-                if session.state == types::state::TrackingState::Active {
-                    log::warn!("[startup] recovering stale ACTIVE session, block_id={:?}", session.block_id);
-                    if let Some(block_id) = session.block_id {
-                        let _ = db.close_block(block_id, session.checkpoint_at);
-                    }
-                    let now = chrono::Utc::now().timestamp();
-                    let _ = db.update_session_state(types::state::TrackingState::Idle, None);
-                    let _ = db.update_session_checkpoint(now);
-                }
-            }
+            // 3. Orchestrator
+            let orchestrator = modules::tracking::setup::init_orchestrator(
+                app.handle().clone(),
+                db.clone(),
+                prompt_cooldown,
+                prompt_debounce,
+                prompt_timeout,
+            );
+
+            // 4. Session recovery
+            modules::session::setup::recover(&db);
 
             // 5. Workers
-            let stop_flag = Arc::new(AtomicBool::new(false));
-
-            // Sampler
-            let platform_sampler = platform::create_sampler();
-            let sample_buffer = workers::sampler::new_buffer();
-            let _sampler_handle = workers::sampler::spawn(
-                platform_sampler,
-                sample_buffer.clone(),
-                Duration::from_secs(sample_interval),
-                stop_flag.clone(),
-            );
-
-            // Evaluator → channel → Orchestrator consumer
-            let (eval_tx, eval_rx) = std::sync::mpsc::channel();
-            let _evaluator_handle = workers::evaluator::spawn(
-                sample_buffer,
+            let stop_flag = modules::tracking::setup::spawn_workers(
                 db.clone(),
-                Duration::from_secs(evaluate_interval),
-                stop_flag.clone(),
-                eval_tx,
-            );
-            let _consumer_handle = Orchestrator::spawn_eval_consumer(
                 orchestrator.clone(),
-                eval_rx,
+                sample_interval,
+                evaluate_interval,
             );
 
-            // Screen lock listener
-            let _screen_lock_handle = platform::screen_lock::spawn_listener(
-                orchestrator.clone(),
-                stop_flag.clone(),
-            );
-
-            // 6. Manage state for IPC commands
             app.manage(db);
             app.manage(orchestrator);
             app.manage(stop_flag);
@@ -167,14 +80,14 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            controllers::tracker::tracker_start,
-            controllers::tracker::tracker_stop,
-            controllers::tracker::tracker_get_status,
-            controllers::settings::settings_get,
-            controllers::settings::settings_update,
-            controllers::prompts::prompt_respond,
-            controllers::export::export_csv,
-            controllers::window::window_hide,
+            modules::tracking::controller::tracker_start,
+            modules::tracking::controller::tracker_stop,
+            modules::tracking::controller::tracker_get_status,
+            modules::settings::controller::settings_get,
+            modules::settings::controller::settings_update,
+            modules::prompts::controller::prompt_respond,
+            modules::export::controller::export_csv,
+            modules::window::controller::window_hide,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

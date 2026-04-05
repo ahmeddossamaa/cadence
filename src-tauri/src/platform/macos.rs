@@ -4,16 +4,15 @@ use std::process::Command;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
+#[link(name = "CoreGraphics", kind = "framework")]
 extern "C" {
-    fn CGEventSourceCounterForEventType(
-        state_id: i32,
-        event_type: u32,
-    ) -> u64;
+    fn CGEventSourceCounterForEventType(state_id: i32, event_type: u32) -> u64;
 }
 
 const COMBINED_SESSION_STATE: i32 = 0;
 const KEY_DOWN: u32 = 10;
 const LEFT_MOUSE_DOWN: u32 = 1;
+const RIGHT_MOUSE_DOWN: u32 = 3;
 const MOUSE_MOVED: u32 = 5;
 const SCROLL_WHEEL: u32 = 22;
 
@@ -32,6 +31,7 @@ impl MacOsSampler {
             }),
             prev_clicks: AtomicU64::new(unsafe {
                 CGEventSourceCounterForEventType(COMBINED_SESSION_STATE, LEFT_MOUSE_DOWN)
+                    + CGEventSourceCounterForEventType(COMBINED_SESSION_STATE, RIGHT_MOUSE_DOWN)
             }),
             prev_moves: AtomicU64::new(unsafe {
                 CGEventSourceCounterForEventType(COMBINED_SESSION_STATE, MOUSE_MOVED)
@@ -48,15 +48,32 @@ impl MacOsSampler {
     }
 
     fn get_foreground_app(&self) -> Option<String> {
-        let output = Command::new("osascript")
-            .args(["-e", "tell application \"System Events\" to get name of first application process whose frontmost is true"])
-            .output()
-            .ok()?;
-        if output.status.success() {
-            let name = String::from_utf8_lossy(&output.stdout).trim().to_string();
-            if name.is_empty() { None } else { Some(name) }
-        } else {
-            None
+        // NSWorkspace.sharedWorkspace.frontmostApplication.localizedName
+        // No Automation permission required, no process spawn.
+        unsafe {
+            use objc::runtime::Object;
+            use objc::{class, msg_send, sel, sel_impl};
+
+            let workspace: *mut Object = msg_send![class!(NSWorkspace), sharedWorkspace];
+            if workspace.is_null() {
+                return None;
+            }
+            let app: *mut Object = msg_send![workspace, frontmostApplication];
+            if app.is_null() {
+                return None;
+            }
+            let name: *mut Object = msg_send![app, localizedName];
+            if name.is_null() {
+                return None;
+            }
+            let utf8: *const std::ffi::c_char = msg_send![name, UTF8String];
+            if utf8.is_null() {
+                return None;
+            }
+            let s = std::ffi::CStr::from_ptr(utf8)
+                .to_string_lossy()
+                .into_owned();
+            if s.is_empty() { None } else { Some(s) }
         }
     }
 
@@ -92,7 +109,9 @@ impl PlatformSampler for MacOsSampler {
 
         unsafe {
             let keys_now = CGEventSourceCounterForEventType(COMBINED_SESSION_STATE, KEY_DOWN);
-            let clicks_now = CGEventSourceCounterForEventType(COMBINED_SESSION_STATE, LEFT_MOUSE_DOWN);
+            let clicks_now =
+                CGEventSourceCounterForEventType(COMBINED_SESSION_STATE, LEFT_MOUSE_DOWN)
+                    + CGEventSourceCounterForEventType(COMBINED_SESSION_STATE, RIGHT_MOUSE_DOWN);
             let moves_now = CGEventSourceCounterForEventType(COMBINED_SESSION_STATE, MOUSE_MOVED);
             let scroll_now = CGEventSourceCounterForEventType(COMBINED_SESSION_STATE, SCROLL_WHEEL);
 

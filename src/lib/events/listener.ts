@@ -2,6 +2,7 @@ import { listen } from '@tauri-apps/api/event';
 import { timerStore } from '../stores/timerStore';
 import { ticketStore } from '../stores/ticketStore';
 import { notificationStore } from '../stores/notificationStore';
+import { diagnosticsStore } from '../stores/diagnosticsStore';
 import { tracker_get_status } from '../ipc/tracker';
 
 export async function initEventListeners() {
@@ -11,6 +12,7 @@ export async function initEventListeners() {
 
   await listen('state_changed', (event: any) => {
     timerStore.updateState(event.payload);
+    diagnosticsStore.onTransition(event.payload.from, event.payload.to, event.payload.timestamp);
     notificationStore.addNotification({
       id: `state_${Date.now()}`,
       type: 'info',
@@ -36,6 +38,10 @@ export async function initEventListeners() {
 
   await listen('tickets_updated', (event: any) => {
     ticketStore.updateList(event.payload);
+  });
+
+  await listen('diagnostics', (event: any) => {
+    diagnosticsStore.onDiagnostics(event.payload);
   });
 
   // Fetch initial state from backend

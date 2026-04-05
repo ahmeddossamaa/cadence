@@ -7,9 +7,3 @@ pub struct Prompt {
     pub actions: Vec<String>,
     pub timeout_secs: u64,
 }
-
-#[derive(Debug, Clone, Deserialize)]
-pub struct PromptResponse {
-    pub id: String,
-    pub value: i32,
-}
