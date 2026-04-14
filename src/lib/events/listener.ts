@@ -1,9 +1,9 @@
 import { listen } from '@tauri-apps/api/event';
-import { get } from 'svelte/store';
 import { timerStore } from '../stores/timerStore';
 import { ticketStore } from '../stores/ticketStore';
 import { notificationStore } from '../stores/notificationStore';
-import { tickets_list } from '../ipc/tickets';
+import { diagnosticsStore } from '../stores/diagnosticsStore';
+import { tracker_get_status } from '../ipc/tracker';
 
 export async function initEventListeners() {
   await listen('timer_tick', (event: any) => {
@@ -12,10 +12,24 @@ export async function initEventListeners() {
 
   await listen('state_changed', (event: any) => {
     timerStore.updateState(event.payload);
+    diagnosticsStore.onTransition(event.payload.from, event.payload.to, event.payload.timestamp);
+    notificationStore.addNotification({
+      id: `state_${Date.now()}`,
+      type: 'info',
+      message: `${event.payload.from} → ${event.payload.to}`,
+      timestamp: event.payload.timestamp * 1000,
+      resolved: true
+    });
   });
 
   await listen('prompt', (event: any) => {
-    notificationStore.addPrompt(event.payload);
+    notificationStore.addNotification({
+      id: event.payload.id,
+      type: 'prompt',
+      message: event.payload.message,
+      timestamp: Date.now(),
+      resolved: false
+    });
   });
 
   await listen('notification', (event: any) => {
@@ -26,39 +40,24 @@ export async function initEventListeners() {
     ticketStore.updateList(event.payload);
   });
 
-  // --- MOCK BACKEND SIMULATION ---
-  tickets_list().then(tickets => ticketStore.updateList(tickets));
+  await listen('diagnostics', (event: any) => {
+    diagnosticsStore.onDiagnostics(event.payload);
+  });
 
-  setInterval(() => {
-    const state = get(timerStore);
-    if (state.trackingState === 'ACTIVE') {
-      timerStore.update({
-        ...state,
-        elapsedSeconds: state.elapsedSeconds + 1,
-        dailyTotalSeconds: state.dailyTotalSeconds + 1
-      });
-    }
-  }, 1000);
+  // Fetch initial state from backend
+  try {
+    const status = await tracker_get_status();
+    timerStore.update(status);
+  } catch (e) {
+    console.error('Failed to fetch initial status:', e);
+  }
 
-  setTimeout(() => {
-    notificationStore.addNotification({
-      id: Math.random().toString(),
-      type: 'info',
-      message: 'Synced to Jira',
-      timestamp: Date.now() - 120000,
-      resolved: true
-    });
-  }, 2000);
-
-  setTimeout(() => {
-    notificationStore.addPrompt({
-      id: Math.random().toString(),
-      message: 'Tag 12min gap',
-      actions: [
-        { label: 'Meeting', value: 'meeting' },
-        { label: 'Ignore', value: 'ignore' }
-      ],
-      timeoutSeconds: 120
-    });
-  }, 5000);
+  // Fetch initial tickets
+  try {
+    const { jira_sync } = await import('../ipc/jira');
+    const tickets = await jira_sync();
+    ticketStore.updateList(tickets);
+  } catch (e) {
+    console.error('Failed to fetch initial tickets:', e);
+  }
 }

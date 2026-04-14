@@ -4,7 +4,7 @@ import type { TimerState } from '../types/timer';
 const initialState: TimerState = {
   activeTicketKey: null,
   activeTicketName: null,
-  elapsedSeconds: 0,
+  startedAt: null,
   dailyTotalSeconds: 0,
   dailyTargetSeconds: 28800, // 8 hours
   trackingState: 'IDLE',

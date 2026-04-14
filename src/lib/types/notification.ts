@@ -4,17 +4,5 @@ export interface Notification {
   message: string;
   timestamp: number;
   resolved: boolean;
-  response?: string; // user's answer if it was a prompt
-}
-
-export interface PromptAction {
-  label: string;
-  value: string;
-}
-
-export interface ActivePrompt {
-  id: string;
-  message: string;
-  actions: PromptAction[];
-  timeoutSeconds: number;
+  response?: string;
 }

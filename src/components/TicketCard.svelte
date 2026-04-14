@@ -25,41 +25,51 @@
 
 <style>
   .card {
-    background: var(--color-bg-secondary);
-    border: 2px solid transparent; 
-    padding: 1.25rem 1.5rem;
-    min-width: 240px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    padding: 0.875rem 1.125rem;
+    min-width: 140px;
     border-radius: 8px;
     display: flex;
     flex-direction: column;
-    gap: 0.75rem;
+    gap: 0.5rem;
     transition: all 150ms ease;
     cursor: pointer;
     user-select: none;
   }
 
   .card:hover {
-    background: var(--color-accent-dark);
+    background: rgba(255, 255, 255, 0.14);
   }
 
   .card.selected {
-    background: var(--color-accent-dark);
+    background: rgba(255, 255, 255, 0.14);
   }
 
   .card.active {
-    border-color: var(--color-highlight);
-    background: var(--color-accent-dark);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    border-color: rgba(255, 255, 255, 0.22);
+    background: rgba(255, 255, 255, 0.14);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+    min-width: 170px;
+    padding: 1rem 1.25rem;
+  }
+
+  .card.active .key {
+    font-size: 1.125rem;
+  }
+
+  .card.active .time {
+    font-size: 0.9375rem;
   }
 
   .key {
-    font-size: 1.125rem;
+    font-size: 0.9375rem;
     font-weight: 600;
     color: var(--color-text-primary);
   }
 
   .time {
-    font-size: 0.875rem;
+    font-size: 0.8125rem;
     color: var(--color-text-secondary);
     display: flex;
     justify-content: space-between;
